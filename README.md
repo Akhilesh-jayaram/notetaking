@@ -1,9 +1,10 @@
 # notetaking
-Task Description: 
+
+**Task Description: **
 
 Develop a RESTful API for a simple note-taking application. The API should allow users to perform basic CRUD operations (Create, Read, Update, Delete) on notes.
 
-Requirements:
+**Requirements:**
 
 Endpoints: Implement the following endpoints:
 
@@ -22,3 +23,25 @@ Validation: Implement basic input validation for creating and updating notes. En
 Error Handling: Handle errors gracefully and return meaningful error responses with appropriate HTTP status codes.
 
 Testing: Write unit tests to ensure the functionality and integrity of the API endpoints.
+
+
+
+**Firstly, install the necessary packages:**
+
+$ python -m pip install Django
+
+Activate the virtual environment: Run the activation script located in the bin directory within the virtual environment folder 
+
+For Windows:
+env_site\Scripts\activate.bat
+
+pip install django
+
+pip install django djangorestframework
+
+Now, let's create a Django project and an app:
+
+django-admin startproject notetaking
+cd notetaking
+python manage.py startapp notes
+
