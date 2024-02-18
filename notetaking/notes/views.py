@@ -1,72 +1,60 @@
-from django.shortcuts import render
+from rest_framework import generics, permissions
+from rest_framework.authtoken.views import ObtainAuthToken
+from rest_framework.settings import api_settings
+from .models import Note, SharedNote,CustomUser  
+from .serializers import NoteSerializer, SharedNoteSerializer , UserSerializer,NoteVersionHistorySerializer
+from django.contrib.auth.models import User
+from pytz import timezone
 
-# Create your views here.
-from rest_framework import generics, status
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
-from .models import Note, NoteChange
-from .serializers import NoteSerializer, NoteChangeSerializer
 
-class UserRegistrationView(generics.CreateAPIView):
-    queryset = User.objects.all()
+class UserCreateView(generics.CreateAPIView):
+    queryset = CustomUser.objects.all()
     serializer_class = UserSerializer
+    permission_classes = [permissions.AllowAny]
 
-class UserLoginView(generics.CreateAPIView):
-    queryset = User.objects.all()
-    serializer_class = UserLoginSerializer
+class UserLoginView(ObtainAuthToken):
+    renderer_classes = api_settings.DEFAULT_RENDERER_CLASSES
 
-class NoteCreateView(generics.CreateAPIView):
+class NoteListCreateView(generics.ListCreateAPIView):
+    queryset = Note.objects.all()
     serializer_class = NoteSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated]
 
     def perform_create(self, serializer):
-        serializer.save(owner=self.request.user)
+        serializer.save(user=self.request.user)
 
-class NoteRetrieveView(generics.RetrieveAPIView):
+class NoteDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Note.objects.all()
     serializer_class = NoteSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated]
 
-    def retrieve(self, request, *args, **kwargs):
-        note = self.get_object()
-        if request.user == note.owner or request.user in note.shared_with.all():
-            serializer = self.get_serializer(note)
-            return Response(serializer.data)
-        else:
-            return Response({"detail": "You do not have permission to access this note."}, status=status.HTTP_403_FORBIDDEN)
+class SharedNoteView(generics.CreateAPIView):
+    serializer_class = SharedNoteSerializer
+    permission_classes = [permissions.IsAuthenticated]
 
-class NoteShareView(generics.UpdateAPIView):
-    queryset = Note.objects.all()
-    serializer_class = NoteSerializer
-    permission_classes = [IsAuthenticated]
-
-    def perform_update(self, serializer):
-        shared_users = self.request.data.get('shared_with', [])
-        serializer.save(shared_with=shared_users)
+    def perform_create(self, serializer):
+        note_id = self.request.data.get('note_id')
+        note = Note.objects.get(id=note_id)
+        shared_with_usernames = serializer.validated_data['shared_with']
+        shared_users = CustomUser.objects.filter(username__in=shared_with_usernames)
+        
+        for shared_user in shared_users:
+            SharedNote.objects.create(note=note, shared_with=shared_user)
 
 class NoteUpdateView(generics.UpdateAPIView):
     queryset = Note.objects.all()
     serializer_class = NoteSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated]
 
     def perform_update(self, serializer):
-        note = self.get_object()
-        if self.request.user == note.owner or self.request.user in note.shared_with.all():
-            content = self.request.data.get('content', '')
-            line_number = self.request.data.get('line_number', None)
-            NoteChange.objects.create(note=note, content=content, user=self.request.user, line_number=line_number)
-            serializer.save()
-        else:
-            return Response({"detail": "You do not have permission to update this note."}, status=status.HTTP_403_FORBIDDEN)
+        # Assuming no existing sentences can be edited, but new sentences can be added.
+        serializer.save(updated_at=timezone.now())
+        # You may want to implement logic to track changes and store them in NoteVersionHistory model
 
 class NoteVersionHistoryView(generics.ListAPIView):
-    serializer_class = NoteChangeSerializer
-    permission_classes = [IsAuthenticated]
+    serializer_class = NoteVersionHistorySerializer
+    permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        note_id = self.kwargs.get('id')
-        note = Note.objects.get(id=note_id)
-        if self.request.user == note.owner or self.request.user in note.shared_with.all():
-            return NoteChange.objects.filter(note__id=note_id)
-        else:
-            return NoteChange.objects.none()
+        note_id = self.kwargs['id']
+        return Note.objects.filter(id=note_id)

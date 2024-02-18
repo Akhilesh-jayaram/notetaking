@@ -1,12 +1,21 @@
 from rest_framework import serializers
-from .models import Note, NoteChange
+from .models import Note,CustomUser,NoteVersionHistory
 
 class NoteSerializer(serializers.ModelSerializer):
     class Meta:
         model = Note
-        fields = '__all__'
+        fields = ['id', 'title', 'content', 'created_at', 'updated_at']
 
-class NoteChangeSerializer(serializers.ModelSerializer):
+class SharedNoteSerializer(serializers.Serializer):
+    shared_with = serializers.CharField()
+
+class UserSerializer(serializers.ModelSerializer):
     class Meta:
-        model = NoteChange
-        fields = '__all__'
+        model = CustomUser
+        fields = ['id', 'username', 'email', 'password']  # Include other fields if needed
+        extra_kwargs = {'password': {'write_only': True}}
+    
+class NoteVersionHistorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = NoteVersionHistory
+        fields = ['timestamp', 'user', 'changes']
