@@ -37,11 +37,55 @@ env_site\Scripts\activate.bat
 
 pip install django
 
+Step 1: Setting up Django Project and App
+1.1 Install Django and Django Rest Framework:
+
 pip install django djangorestframework
+
+1.2 Create a new Django project and app:
 
 Now, let's create a Django project and an app:
 
 django-admin startproject notetaking
 cd notetaking
 python manage.py startapp notes
+
+Step 2: Define Models
+2.1 Open notes/models.py and define the models for User and Note:
+
+2.2 Run migrations and apply them:
+
+python manage.py makemigrations
+python manage.py migrate
+
+Step 3: Implement Serializers
+3.1 Create serializers for User, Note, and SharedNote in notes/serializers.py:
+
+Step 4: Implement Views
+4.1 Create views for User registration, login, note CRUD operations, and version history in notes/views.py:
+
+Step 5: Define URLs
+5.1 Create URL patterns in notes/urls.py:
+5.2 Include the app's URLs in the project's urls.py:
+
+Step 6: Implement Authentication
+6.1 Update settings.py to include Django Rest Framework authentication classes:
+
+Step 7: Implement Error Handling and Documentation
+7.1 Add appropriate error handling in the views and document the API using DRF's documentation tools.
+
+
+Step 8: Write Unit Tests
+8.1 Write unit tests for each view to ensure functionality and reliability.
+
+Step 9: Run the Server
+9.1 Run the development server:
+
+
+python manage.py runserver
+
+
+These tests cover user signup, login, note creation, sharing, updating, and version history retrieval. Adjust the test data and assertions based on the specific behavior and requirements of your API. To run the tests, use the following command:
+
+python manage.py test notes.tests
 
