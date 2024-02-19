@@ -1,30 +1,23 @@
-from django.db import models
 
 # Create your models here.
+# models.py Define the data models for the application:
 
-#from django.contrib.auth.models import User
-from django.contrib.auth.models import AbstractUser
-from django.conf import settings 
-
-class CustomUser(AbstractUser):
-    # You can customize the user model fields here
-    pass
-
+# notes/models.py
+from django.db import models
+from django.contrib.auth.models import User
 
 class Note(models.Model):
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
-    title = models.CharField(max_length=255)
+    owner = models.ForeignKey(User, on_delete=models.CASCADE)
     content = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
 class SharedNote(models.Model):
     note = models.ForeignKey(Note, on_delete=models.CASCADE)
-    shared_with = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
 
-
-class NoteVersionHistory(models.Model):
+class NoteHistory(models.Model):
     note = models.ForeignKey(Note, on_delete=models.CASCADE)
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
-    timestamp = models.DateTimeField(auto_now_add=True)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    timestamp = models.DateTimeField()
     changes = models.TextField()

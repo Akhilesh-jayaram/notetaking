@@ -31,7 +31,7 @@ ALLOWED_HOSTS = []
 # Application definition
 
 INSTALLED_APPS = [
-    'notes',
+    
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -39,10 +39,11 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
-    
+    'rest_framework.authtoken',
+    'notes',
 ]
 
-AUTH_USER_MODEL = 'notes.CustomUser'
+#AUTH_USER_MODEL = 'notes.CustomUser'
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',

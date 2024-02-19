@@ -1,60 +1,108 @@
-from rest_framework import generics, permissions
+# notes/views.py 
+# Creating views for User registration, login, note CRUD operations, and version history in 
+from rest_framework import generics, permissions, status
+from rest_framework.authtoken.models import Token
 from rest_framework.authtoken.views import ObtainAuthToken
-from rest_framework.settings import api_settings
-from .models import Note, SharedNote,CustomUser  
-from .serializers import NoteSerializer, SharedNoteSerializer , UserSerializer,NoteVersionHistorySerializer
+from rest_framework.permissions import AllowAny
 from django.contrib.auth.models import User
-from pytz import timezone
+from rest_framework.response import Response
+from rest_framework.decorators import api_view, permission_classes
+from .models import Note, SharedNote, NoteHistory
+from .serializers import UserSerializer, NoteSerializer, SharedNoteSerializer, NoteHistorySerializer
+from datetime import datetime
 
+@api_view(['POST'])
+def user_signup(request):
+    serializer = UserSerializer(data=request.data)
+    if serializer.is_valid():
+        serializer.save()
+        return Response({"message": "User registered successfully"}, status=status.HTTP_201_CREATED)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-class UserCreateView(generics.CreateAPIView):
-    queryset = CustomUser.objects.all()
-    serializer_class = UserSerializer
-    permission_classes = [permissions.AllowAny]
+class CustomAuthToken(ObtainAuthToken):
+    # Customizing token response to include user details
+    def post(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=request.data,
+                                           context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        user = serializer.validated_data['user']
+        token, created = Token.objects.get_or_create(user=user)
+        return Response({
+            'token': token.key,
+            'user_id': user.pk,
+            'username': user.username
+        })
 
-class UserLoginView(ObtainAuthToken):
-    renderer_classes = api_settings.DEFAULT_RENDERER_CLASSES
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def user_login(request):
+    # Using custom token generation view
+    return CustomAuthToken.as_view()(request._request)
 
-class NoteListCreateView(generics.ListCreateAPIView):
-    queryset = Note.objects.all()
-    serializer_class = NoteSerializer
-    permission_classes = [permissions.IsAuthenticated]
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def create_note(request):
+    serializer = NoteSerializer(data=request.data)
+    if serializer.is_valid():
+        serializer.save(owner=request.user)
+        return Response({"message": "Note created successfully"}, status=status.HTTP_201_CREATED)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def get_note(request, id):
+    try:
+        note = Note.objects.get(id=id, owner=request.user)
+        serializer = NoteSerializer(note)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    except Note.DoesNotExist:
+        return Response({"error": "Note not found"}, status=status.HTTP_404_NOT_FOUND)
 
-class NoteDetailView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Note.objects.all()
-    serializer_class = NoteSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-class SharedNoteView(generics.CreateAPIView):
-    serializer_class = SharedNoteSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-    def perform_create(self, serializer):
-        note_id = self.request.data.get('note_id')
-        note = Note.objects.get(id=note_id)
-        shared_with_usernames = serializer.validated_data['shared_with']
-        shared_users = CustomUser.objects.filter(username__in=shared_with_usernames)
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def share_note(request):
+    serializer = SharedNoteSerializer(data=request.data)
+    if serializer.is_valid():
+        note_id = serializer.validated_data.get('note')
+        shared_users = serializer.validated_data.get('users')
         
-        for shared_user in shared_users:
-            SharedNote.objects.create(note=note, shared_with=shared_user)
+        try:
+            note = Note.objects.get(id=note_id, owner=request.user)
+            for user in shared_users:
+                shared_note = SharedNote(note=note, user=user)
+                shared_note.save()
+            return Response({"message": "Note shared successfully"}, status=status.HTTP_201_CREATED)
+        except Note.DoesNotExist:
+            return Response({"error": "Note not found"}, status=status.HTTP_404_NOT_FOUND)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-class NoteUpdateView(generics.UpdateAPIView):
-    queryset = Note.objects.all()
-    serializer_class = NoteSerializer
-    permission_classes = [permissions.IsAuthenticated]
+@api_view(['PUT'])
+@permission_classes([permissions.IsAuthenticated])
+def update_note(request, id):
+    try:
+        note = Note.objects.get(id=id, owner=request.user)
+        new_content = request.data.get('content', '')
 
-    def perform_update(self, serializer):
-        # Assuming no existing sentences can be edited, but new sentences can be added.
-        serializer.save(updated_at=timezone.now())
-        # You may want to implement logic to track changes and store them in NoteVersionHistory model
+        # Your implementation for updating the note content
+        # Assuming appending new content for simplicity
+        note.content += "\n" + new_content
+        note.save()
 
-class NoteVersionHistoryView(generics.ListAPIView):
-    serializer_class = NoteVersionHistorySerializer
-    permission_classes = [permissions.IsAuthenticated]
+        # Track the update in NoteHistory
+        note_history = NoteHistory(note=note, user=request.user, timestamp=datetime.now(), changes=new_content)
+        note_history.save()
 
-    def get_queryset(self):
-        note_id = self.kwargs['id']
-        return Note.objects.filter(id=note_id)
+        return Response({"message": "Note updated successfully"}, status=status.HTTP_200_OK)
+    except Note.DoesNotExist:
+        return Response({"error": "Note not found"}, status=status.HTTP_404_NOT_FOUND)
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def get_version_history(request, id):
+    try:
+        note = Note.objects.get(id=id, owner=request.user)
+        history_entries = NoteHistory.objects.filter(note=note)
+        serializer = NoteHistorySerializer(history_entries, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    except Note.DoesNotExist:
+        return Response({"error": "Note not found"}, status=status.HTTP_404_NOT_FOUND)

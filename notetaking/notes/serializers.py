@@ -1,21 +1,25 @@
+# notes/serializers.py
+#Creating serializers for User, Note, and SharedNote in notes/serializers.py
 from rest_framework import serializers
-from .models import Note,CustomUser,NoteVersionHistory
+from django.contrib.auth.models import User
+from .models import Note, SharedNote ,NoteHistory
+
+class UserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['id', 'username', 'email']
 
 class NoteSerializer(serializers.ModelSerializer):
     class Meta:
         model = Note
-        fields = ['id', 'title', 'content', 'created_at', 'updated_at']
+        fields = ['id', 'owner', 'content', 'created_at', 'updated_at']
 
-class SharedNoteSerializer(serializers.Serializer):
-    shared_with = serializers.CharField()
+class SharedNoteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SharedNote
+        fields = ['id', 'note', 'user']
 
-class UserSerializer(serializers.ModelSerializer):
+class NoteHistorySerializer(serializers.ModelSerializer):
     class Meta:
-        model = CustomUser
-        fields = ['id', 'username', 'email', 'password']  # Include other fields if needed
-        extra_kwargs = {'password': {'write_only': True}}
-    
-class NoteVersionHistorySerializer(serializers.ModelSerializer):
-    class Meta:
-        model = NoteVersionHistory
-        fields = ['timestamp', 'user', 'changes']
+        model = NoteHistory
+        fields = ['id', 'note', 'user', 'timestamp', 'changes']

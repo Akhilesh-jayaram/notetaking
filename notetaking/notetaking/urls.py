@@ -16,8 +16,11 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
+from notes.views import CustomAuthToken, user_signup
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include('notes.urls')),
+    path('api/login/', CustomAuthToken.as_view(), name='user_login'),
+    path('api/signup/', user_signup, name='user_signup'),
 ]
